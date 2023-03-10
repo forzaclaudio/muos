@@ -1,0 +1,12 @@
+[storage]
+url = <some-url>
+container = <some-container>
+
+[auth]
+azure_client_id = <some-id>
+azure_tenant_id = <some-id>
+azure_client_secret = <some-secret>
+
+[web_server]
+host = <some-host>
+port = 1234
