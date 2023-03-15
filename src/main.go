@@ -7,6 +7,7 @@ import (
         "net/http"
 	"os"
         "path/filepath"
+	"strings"
         "github.com/gin-gonic/gin"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -74,21 +75,30 @@ func (ms *MediaStorage) Initialize(ctx context.Context){
   ms.port = config.Get("web_server.port").(int64)
 }
 
+func linuxizeFilename (fileName string) string{
+  tempString := strings.Replace(fileName, ":", "", -1)
+  newFilename := "/mnt/" + tempString
+  fmt.Println("New filename is:",newFilename)
+  return newFilename
+}
+
+
 func (ms *MediaStorage) StoreFile(ctx context.Context, fileName string){
-if _,err := os.Stat(fileName); err != nil{
-  log.Printf("File '%s' does not exist!",fileName)
-} else {
-  data,err := os.ReadFile(fileName)
-  handleNonFatalError(err)
-  credential, err := azidentity.NewAzureCLICredential(nil)
-  handleFatalError(err)
-  client, err := azblob.NewClient(ms.url, credential, nil)
-  handleFatalError(err)
-  _, blobName := filepath.Split(fileName)
-  log.Println("Uploading a blob named:", blobName)
-  _, err = client.UploadBuffer(ctx, ms.container, blobName, data, &azblob.UploadBufferOptions{})
-  handleNonFatalError(err)
-  log.Println("Upload completed successfully!")
+  newFilename := linuxizeFilename(fileName)
+  if _,err := os.Stat(newFilename); err != nil{
+    log.Printf("File '%s' does not exist!", fileName)
+  } else {
+    data,err := os.ReadFile(newFilename)
+    handleNonFatalError(err)
+    credential, err := azidentity.NewAzureCLICredential(nil)
+    handleFatalError(err)
+    client, err := azblob.NewClient(ms.url, credential, nil)
+    handleFatalError(err)
+    _, blobName := filepath.Split(newFilename)
+    log.Println("Uploading a blob named:", blobName)
+    _, err = client.UploadBuffer(ctx, ms.container, blobName, data, &azblob.UploadBufferOptions{})
+    handleNonFatalError(err)
+    log.Println("Upload completed successfully!")
 }
 }
 
@@ -116,13 +126,6 @@ func main(){
     fmt.Println("Will upload file: ",body.Filepath)
     ms.StoreFile(ctx, body.Filepath)
   })
-	/*r.POST("/store", func(c *gin.Context){
-		log.Println("Processing upload")
-		file,_ := c.FormFile("file")
-		dst,_ := filepath.Abs("C:\\temp\\uploaded_file_v2")
-		c.SaveUploadedFile(file, dst)
-		c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
-	})*/
   server_url := fmt.Sprintf(":%d", ms.port)
   r.Run(server_url)
 }
